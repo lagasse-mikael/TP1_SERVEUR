@@ -1,0 +1,2 @@
+Debut du projet , pour ce qui est de MariaDB , PHPMyAdmin et NGINX , ça c'est passer avec merveille. Cependant j'ai eu des problemes avec Wordpress par rapport a ma base de donnee "Error establishing connection to database" , bref , c'etait mon user / password qui ne correspondaient pas. Sinon apres PostgresSQL et postgresAdmin ça c'est bien passer. Percona marche avec succees avec PGAdmin4!
+La documentation de Percona etait peu presente , mais on se debrouille.

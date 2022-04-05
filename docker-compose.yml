@@ -1,0 +1,178 @@
+# ------------------------------------------------
+# Projet:   TP01
+# Cours:    420-4D4
+# Fichier:  docker-compose.yml - version de départ
+# Auteur:   Mikael Lagasse
+# Date:     22 Mars 2022
+# ------------------------------------------------
+# Description:
+# ------------------------------------------------
+# M-A-J:
+version: "1"
+services:
+  # ===========================================
+  # Le serveur de bases de données mariaDB
+  # # Service disponible sur le port 3307
+  # ===========================================
+  mariadb:
+    image: mariadb
+    restart: always
+    environment:
+       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+       MYSQL_DATABASE: ${MYSQL_DATABASE}
+       MYSQL_USER: ${MYSQL_USER}
+       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    networks:
+      - reseauWP
+    volumes:
+      - ./bdwp:/var/lib/mysql
+  
+  # <-------------------------------------- FIN
+
+  
+  # ==============================================
+  # Construction et démarrage du serveur Web,
+  # à partir des fichiers du dossier 'contenu-web'
+  # # Service disponible sur le port 80
+  # ==============================================
+  nginx:
+    image: nginx
+    volumes:
+      - ./contenu-web:/usr/share/nginx/html:rw
+    ports:
+      - 80:80
+    networks:
+      - reseauWP
+  # <-------------------------------------- FIN
+
+
+  # ===========================================
+  # Construction et démarrage de WordPress
+  # Service disponible sur le port 88
+  # ===========================================
+  wordpress:
+    depends_on:
+      - mariadb
+    build: ./wordpress/
+    restart: always
+    environment:
+       WORDPRESS_DB_HOST: mariadb
+       WORDPRESS_DB_USER: ${WP_USER}
+       WORDPRESS_DB_PASSWORD: ${WP_PASSWORD}
+       WORDPRESS_TABLE_PREFIX: "2068410_"
+    ports:
+      - 88:80
+    networks:
+      - reseauWP
+
+  # <-------------------------------------- FIN
+
+
+  # ---- ZONE postgres + PMM
+  # ===========================================
+  # Le serveur d'activités percona PMM
+  # Service disponible sur le port 83
+  # ===========================================
+  pmm-server:
+    image: percona/pmm-server
+    ports:
+      - 83:80
+      - 443:80
+    environment:
+      SERVER_USER: ${PMM_USER}
+      SERVER_PASSWORD: ${PMM_PASS}
+    networks:
+      - reseauPMM
+
+  # <-------------------------------------- FIN
+
+  # ===========================================
+  # Le serveur de base de données postgres
+  # Service disponible sur le port 5432
+  # ===========================================
+  postgresSQL:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    networks:
+      - reseauPMM
+  
+    # <-------------------------------------- FIN
+
+  
+  # ===========================================
+  # Démarrage de postgresAdmin
+  # Service disponible sur le port 81
+  # ===========================================
+  postgresAdmin:
+    depends_on:
+      - mariadb
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+    ports:
+      - 81:80
+    networks:
+      - reseauPMM
+
+  # <-------------------------------------- FIN
+
+
+  # ================================================
+  # Le client PMM pour la base de données postgress
+  # ATTENTION:  Cette solution ne fonctionne pas!!!
+  # À vous de trouver la bonne solution ...+
+  # ================================================
+  pmm-client-postgres:
+    depends_on:
+      - "postgresSQL"
+      - "pmm-server"
+    image: perconalab/pmm-client
+    volumes:
+      - ./dataPMM-SERVER:/srv
+    environment:
+      - PMM_SERVER=pmm-server:443
+      - PMM_USER=${PMM_USER}
+      - PMM_PASSWORD=${PMM_PASS}
+      - DB_TYPE=postgresql
+      - DB_HOST=postgresSQL
+      - DB_PORT=5432
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+    networks:
+      - reseauPMM
+  # <-------------------------------------- FIN
+
+  # ===========================================
+  # Démarrage de phpMyAdmin
+  # Service disponible sur le port 82
+  # NOTE: Il ne faut pas utiliser la méthode: PMA_ARBITRARY=1
+  # ===========================================
+  phpmyadmin:
+    image: phpmyadmin
+    restart: always
+    ports:
+      - 82:80
+    environment:
+      PMA_HOST: mariadb
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    networks:
+      - reseauWP
+
+  # <-------------------------------------- FIN
+
+
+# ===========================================
+# Les réseaux de l'application
+# ===========================================
+networks :
+  reseauWP:
+    name: reseauWP
+    driver: bridge
+  reseauPMM:
+    name: reseauPMM
+    driver: bridge
+# <-------------------------------------- FIN
